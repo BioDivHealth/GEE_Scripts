@@ -1,0 +1,67 @@
+
+
+// Step 1: Draw a region on the map
+// Option A: Use the "Geometry tools" on the map to draw your region of interest (ROI)
+
+// Option B: Specify latitude and longitude boundaries (uncomment lines)
+//var minLat = 37.7749;
+//var minLon = -122.4194;
+//var maxLat = 37.8049;
+//var maxLon = -122.3894;
+//var geometry = ee.Geometry.Rectangle([minLon, minLat, maxLon, maxLat]);
+
+// Step 2: Specify your year (only from 2015 - 2019)
+var year = 2016
+
+var dataset = ee.ImageCollection('COPERNICUS/Landcover/100m/Proba-V-C3/Global')
+    .filter(ee.Filter.date(ee.Date.fromYMD(year, 1, 1), ee.Date.fromYMD(year, 12, 31)))
+    .filter(ee.Filter.bounds(geometry))
+    .select('discrete_classification')
+    
+// Step 3: Merge all overlapping tiles using mosaic()
+var mosaicImage = dataset.mosaic();
+
+// Step 4: Clip the selected dataset to the bounding box
+var clippedImage = mosaicImage.clip(geometry);
+
+// Step 5: Visualize and add to map
+var visParams = {
+  min: 0,
+  max: 100,  
+  palette: [
+    '006400', // Class 0: No Data or Unknown (Dark Green)
+    '00A000', // Class 10: Cropland, irrigated or post-flooding (Green)
+    'EECFA0', // Class 20: Cropland, rainfed (Yellow)
+    'B50000', // Class 30: Mosaic cropland/natural vegetation (Red)
+    '00FFFF', // Class 40: Mosaic natural vegetation/cropland (Cyan)
+    '654321', // Class 50: Tree cover, broadleaved, evergreen (Brown)
+    '008000', // Class 60: Tree cover, broadleaved, deciduous, closed (Dark Green)
+    'FFFF00', // Class 70: Tree cover, broadleaved, deciduous, open (Yellow)
+    'A0522D', // Class 80: Tree cover, needleleaved, evergreen (Sienna)
+    'D2B48C', // Class 90: Tree cover, needleleaved, deciduous (Tan)
+    '8B4513', // Class 100: Shrubland (SaddleBrown)
+    '7CFC00', // Class 110: Grassland (Lime Green)
+    '00FF00', // Class 120: Lichen/Moss (Bright Green)
+    '87CEFA', // Class 130: Sparse vegetation (Sky Blue)
+    '1E90FF', // Class 140: Bare areas (Dodger Blue)
+    '191970', // Class 150: Permanent snow and ice (Midnight Blue)
+    '0000FF', // Class 160: Inland water (Blue)
+    'ADD8E6', // Class 170: Herbaceous cover, flooded (Light Blue)
+    'FF4500', // Class 180: Mangroves (Orange Red)
+    'FF0000', // Class 190: Artificial surfaces and associated areas (Bright Red)
+    'F5DEB3'  // Class 200: Bare soils (Wheat)
+  ]
+};
+Map.centerObject(geometry);
+Map.addLayer(clippedImage, visParams, 'Landcover');
+
+// Step 6: Export the image as a GeoTIFF
+  Export.image.toDrive({
+    image: clippedImage,
+    description: 'DynamicLand',
+    scale: 100, // 100 meters lowest for Copernicus Dynamic Land
+    region: geometry,
+    fileFormat: 'GeoTIFF',
+    maxPixels: 1e9
+  });
+

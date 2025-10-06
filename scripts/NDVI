@@ -1,0 +1,53 @@
+// Step 1: Specify Region of Interest
+// Option A: Use the "Geometry tools" on the map to draw your region of interest (ROI)
+
+// Option B: Specify latitude and longitude boundaries (uncomment lines)
+//var minLat = 37.7749;
+//var minLon = -122.4194;
+//var maxLat = 37.8049;
+//var maxLon = -122.3894;
+//var geometry = ee.Geometry.Rectangle([minLon, minLat, maxLon, maxLat]);
+
+// Step 2: Specify your date range:
+var startDate = '2024-01-01';
+var endDate = '2025-01-01';
+
+// Step 3: Load a satellite image collection (e.g., Landsat 8)
+var images= ee.ImageCollection('LANDSAT/LC08/C02/T1_TOA')
+              .filterBounds(geometry)
+              .filterDate(startDate, endDate)  // specify your date range
+
+// Step 4: Mask out cloudy images
+var maskClouds = function(image) {
+  var cloudShadowBitMask = (1 << 3);
+  var cloudsBitMask = (1 << 5);
+  var qa = image.select('QA_PIXEL');
+  var mask = qa.bitwiseAnd(cloudShadowBitMask).eq(0)
+              .and(qa.bitwiseAnd(cloudsBitMask).eq(0));
+  return image.updateMask(mask);
+};
+var cloudFreeImages = images.map(maskClouds);
+
+// Step 4: Merge all overlapping tiles using mosaic()
+var mosaicImage = ee.ImageCollection(cloudFreeImages).mosaic();
+
+// Step 5: Compute the Normalized Difference Vegetation Index (NDVI).
+var ndvi = mosaicImage.normalizedDifference(['B5', 'B4']).rename('NDVI');
+
+// Step 6: Clip the NDVI to the geometry
+var ndviClipped = ndvi.clip(geometry);
+
+// Step 7: Display the result.
+Map.centerObject(geometry);
+var ndviParams = {min: -1, max: 1, palette: ['blue', 'white', 'green']};
+Map.addLayer(ndviClipped, ndviParams, 'NDVI image');
+
+// Step 8: Export the NDVI as a GeoTIFF
+Export.image.toDrive({
+  image: ndviClipped,
+  description: 'NDVI_Export',
+  scale: 30,  // set the resolution (30 meters for Landsat)
+  region: geometry,
+  fileFormat: 'GeoTIFF',
+  maxPixels: 1e9  // set maximum number of pixels allowed in export
+});

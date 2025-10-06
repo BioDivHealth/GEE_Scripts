@@ -1,0 +1,40 @@
+
+// Step 1: Draw a region on the map
+// Option A: Use the "Geometry tools" on the map to draw your region of interest (ROI)
+
+// Option B: Specify latitude and longitude boundaries (uncomment lines)
+//var minLat = 37.7749;
+//var minLon = -122.4194;
+//var maxLat = 37.8049;
+//var maxLon = -122.3894;
+//var geometry = ee.Geometry.Rectangle([minLon, minLat, maxLon, maxLat]);
+
+// Step 2: Load Copernicus data
+var dataset = ee.ImageCollection("COPERNICUS/DEM/GLO30")
+    .select('DEM')
+    
+// Step 3: Merge all overlapping tiles using mosaic()
+var mosaicImage = dataset.mosaic();
+
+// Step 4: Clip the selected dataset to the bounding box
+var clippedImage = mosaicImage.clip(geometry);
+
+// Step 5: Visualize and add to map
+var visParams = {
+  min: 0.0,
+  max: 1000.0,
+  palette: ['0000ff','00ffff','ffff00','ff0000','ffffff'],
+};
+Map.centerObject(geometry);
+Map.addLayer(clippedImage, visParams, 'DEM');
+
+// Step 6: Export the image as a GeoTIFF
+  Export.image.toDrive({
+    image: clippedImage,
+    description: 'DEM',
+    scale: 30, // 30 meters lowest for Copernicus Dynamic Land
+    region: geometry,
+    fileFormat: 'GeoTIFF',
+    maxPixels: 1e9
+  });
+

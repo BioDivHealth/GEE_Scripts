@@ -1,0 +1,43 @@
+// Step 1: Draw a region on the map
+// Option 1: Use the "Geometry tools" on the map to draw your region of interest (ROI)
+
+// Option 2: Specify latitude and longitude boundaries (uncomment lines)
+//var minLat = 37.7749;
+//var minLon = -122.4194;
+//var maxLat = 37.8049;
+//var maxLon = -122.3894;
+//var geometry = ee.Geometry.Rectangle([minLon, minLat, maxLon, maxLat]);
+
+// Step 2: Load WorldCover version 2 Collection (specify v100 for version 1)
+var dataset = ee.ImageCollection('ESA/WorldCover/v200')
+  .filter(ee.Filter.bounds(geometry))
+  .select('Map')  // Select the 'Map' band from WorldCover dataset
+
+// Step 3: Merge all overlapping tiles using mosaic()
+var mosaicImage = dataset.mosaic();
+
+// Step 4: Clip the selected dataset to the bounding box
+var clippedImage = ee.Image(mosaicImage).clip(geometry);
+
+// Step 5: Visualize and add to map
+var visParams = {
+  min: 10,
+  max: 100,
+  palette: [
+    '006400', 'ffbb22', 'ffff4c', 'f096ff', 'fa0000',
+    'b4b4b4', 'f0f0f0', '0064c8', '0096a0', '00cf75'
+  ]
+};
+Map.centerObject(geometry);
+Map.addLayer(clippedImage, visParams, 'WorldCover');
+
+// Step 6: Export the image as a GeoTIFF
+  Export.image.toDrive({
+    image: clippedImage,
+    description: 'WorldCover_v2',
+    scale: 10, // 10 meters lowest for World Cover
+    region: geometry,
+    fileFormat: 'GeoTIFF',
+    maxPixels: 1e9
+  });
+
